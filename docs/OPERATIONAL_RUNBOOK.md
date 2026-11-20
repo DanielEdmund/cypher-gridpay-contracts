@@ -299,3 +299,5 @@ Update this runbook with anything that slowed the response down.
 - [Storage versioning](./STORAGE_VERSIONING.md)
 - [Deployment](./DEPLOYMENT.md)
 - [Security policy](../SECURITY.md)
+- [Multi-Asset & Oracle Configuration Guide](./MULTI_ASSET_AND_ORACLES.md) — token delisting, oracle staleness and manual fallback procedures
+- [Economic invariants & balance conservation](./ECONOMIC_INVARIANTS.md)
