@@ -187,4 +187,10 @@ Use `stellar contract info interface --id <ID> --network $NETWORK` to confirm wh
 - [ ] Token balances held by each contract reconciled against the stored records
 - [ ] Deci
 
+- [Admin contract README](../orchestrator/contracts/admin/README.md)
+- [Storage versioning](./STORAGE_VERSIONING.md)
+- [Deployment](./DEPLOYMENT.md)
+- [Security policy](../SECURITY.md)
+- [Multi-Asset & Oracle Configuration Guide](./MULTI_ASSET_AND_ORACLES.md) — token delisting, oracle staleness and manual fallback procedures
+- [Economic invariants & balance conservation](./ECONOMIC_INVARIANTS.md)
 /* … truncated 5097 chars — edit only what you need near the top … */
