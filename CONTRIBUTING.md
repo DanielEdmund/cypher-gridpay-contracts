@@ -156,6 +156,11 @@ Test requirements:
 - Edge case coverage
 - Error handling verification
 
+> 📖 For the full testing strategy — the five-layer verification pyramid (unit,
+> auth/reentrancy, cross-contract E2E, property/fuzz, differential WASM),
+> deterministic fixtures, time-travel helpers, and copyable templates — see
+> [docs/TESTING_GUIDE.md](docs/TESTING_GUIDE.md).
+
 ### 4. Format Your Code
 
 ```bash
@@ -266,14 +271,6 @@ pub fn cp(e: Env, f: Address, a: i128) -> u64 {
 fn test_payment_creation() {
     let env = Env::default();
     // Setup test data
-    let contract_id = env.register_contract(None, PaymentContract);
-    
-    // Execute test
-    let payment_id = contract.create_payment(/* args */);
-    
-    // Verify results
-    assert_eq!(payment_id, 1);
-}
 
-#[test]
-#[should_panic(expected = "
+
+/* … truncated 248 chars — edit only what you need near the top … */
