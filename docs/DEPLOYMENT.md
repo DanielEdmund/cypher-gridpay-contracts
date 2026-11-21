@@ -307,3 +307,11 @@ stellar contract invoke --id $REFUND_ID --network testnet -- get_admin
 ### Resetting
 
 To redeploy from scratch, generate a new WASM hash and deploy with a new alias or contract ID.
+
+---
+
+## See Also
+
+- [Multi-Asset & Oracle Configuration Guide](./MULTI_ASSET_AND_ORACLES.md) — token allowlisting, decimal normalization, oracle rate feeds and safe delisting
+- [Operational runbook](./OPERATIONAL_RUNBOOK.md)
+- [Payment contract README](../core/contracts/payment/README.md)
