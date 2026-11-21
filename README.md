@@ -164,3 +164,6 @@ This project is licensed under the [MIT License](LICENSE).
 
 <!-- handsoff-issue-13 -->
 - #13: payment: Add expiration and overflow checks to customer loyalty points system
+
+<!-- handsoff-issue-397 -->
+- #397: docs: Document Off-Chain Backend API OpenAPI 3.1 Specification, Webhook Event Catalog, and HMAC Signature Verification
