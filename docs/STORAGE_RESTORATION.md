@@ -100,15 +100,75 @@ stellar contract invoke \
   -- <FUNCTION> <ARGS>
 ```
 
+## Restoration decision matrix
+
+Not every archived entry needs the same recovery path. Use the matrix below to
+decide whether the automated SDK `restorePreamble` is sufficient or whether a
+manual keeper/admin restoration is required.
+
+| Scenario | Entry tier | Automated SDK `restorePreamble` | Manual keeper/admin restoration |
+| -------- | ---------- | ------------------------------- | ------------------------------- |
+| Normal user invocation touches a recently-expired `Persistent` entry | `Persistent` | ✅ Sufficient — the SDK builds a restore preamble and the host restores the entry as part of the same transaction | Not required |
+| `Instance` entry archived (contract config, admin, counters) | `Instance` | ⚠️ Only if the caller already knows the instance key; the preamble must include the contract instance ledger key | ✅ Recommended — admin/keeper restores the instance entry before any user traffic |
+| `Temporary` entry archived (short-lived caches, nonces) | `Temporary` | ❌ Not applicable — temporary entries are expected to expire and are recreated by the contract | Not required; let the contract recreate the entry |
+| Bulk recovery after a long outage (many keys archived) | `Persistent` / `Instance` | ❌ Impractical — one preamble per transaction | ✅ Required — batch restore with `stellar contract restore` (repeat `--key`) |
+| Archived record must be proven to exist before restore | any | ❌ Not covered | ✅ Required — verify inclusion with `verify_archived_record_inclusion` (see below) |
+| Cross-contract dependency archived (e.g. escrow ↔ payment) | `Persistent` | ⚠️ Only for the entry the current call touches | ✅ Recommended — restore all dependent contract entries first |
+
+### Using `restorePreamble` (automated)
+
+When the SDK detects that a ledger entry required by an invocation is archived,
+it attaches a `restorePreamble` to the transaction. The host restores the entry
+and then executes the invocation in the same transaction. This is the default
+path for routine user traffic and requires no operator action.
+
+Use it when:
+
+- The archived entry is `Persistent` and is touched directly by the invocation.
+- The caller can enumerate the exact ledger keys the call depends on.
+- The number of archived keys is small (fits in a single transaction).
+
+### Manual keeper/admin restoration
+
+Escalate to manual restoration when the automated preamble cannot cover the
+case — bulk recovery, `Instance` entries, or cross-contract dependencies. Use
+`stellar contract restore` (see [section 2](#2-restore-archived-entries)) with
+repeated `--key` flags to restore many entries in one operation.
+
+## Verifying archived record inclusion
+
+Before restoring (or to prove a record still exists in the archive), verify that
+the archived record is included in the archive using the contract's
+`verify_archived_record_inclusion` entrypoint. This confirms the record hash and
+key match the archived state, so a restore will succeed and the data is intact.
+
+```bash
+stellar contract invoke \
+  --id <CONTRACT_ID> \
+  --network testnet \
+  --source <IDENTITY> \
+  -- verify_archived_record_inclusion \
+  --record_key <LEDGER_KEY_XDR>
+```
+
+A successful return confirms the record is present in the archive and can be
+restored. A failure indicates the key is wrong or the record was never archived
+under that key — re-inspect contract data before retrying the restore.
+
 ## Step-by-step summary
 
 1. Identify the failing or at-risk contract and its contract ID.
 2. Inspect contract data to locate the archived ledger key(s).
-3. Run `stellar contract restore` with the contract ID, key(s), network, and
-   source identity.
-4. Verify the entry is live with `stellar contract data`.
-5. Invoke the contract only after restoration succeeds.
+3. Consult the [restoration decision matrix](#restoration-decision-matrix) to
+   choose automated `restorePreamble` vs. manual restoration.
+4. (Optional) Verify inclusion with `verify_archived_record_inclusion`.
+5. Run `stellar contract restore` with the contract ID, key(s), network, and
+   source identity (manual path), or rely on the SDK preamble (automated path).
+6. Verify the entry is live with `stellar contract data`.
+7. Invoke the contract only after restoration succeeds.
 
 ## Related documentation
 
 - [Storage Versioning Guide](STORAGE_VERSIONING.md)
+- [Operational Runbook](OPERATIONAL_RUNBOOK.md)
+- [Architecture Overview](ARCHITECTURE.md)
