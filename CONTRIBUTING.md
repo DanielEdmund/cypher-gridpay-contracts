@@ -111,6 +111,8 @@ Soroban networks enforce a maximum contract deployment size of **256 KB** (262,1
 
 After making changes, run `make build` to re-check the size.
 
+> 📖 For a deeper walkthrough of CPU/memory gas optimization and WASM size reduction (twiggy/wasm-opt inspection, `env.budget().print()` profiling, bounded batch rules), see [docs/GAS_AND_WASM_OPTIMIZATION.md](docs/GAS_AND_WASM_OPTIMIZATION.md).
+
 ## 🔄 Development Workflow
 
 ### 1. Create a Feature Branch
@@ -274,65 +276,4 @@ fn test_payment_creation() {
 }
 
 #[test]
-#[should_panic(expected = "Amount must be positive")]
-fn test_payment_creation_zero_amount() {
-    // Test error cases
-}
-```
-
-## 🔒 Security Considerations
-
-Smart contracts handle real value. Please:
-
-1. **Never bypass security checks** - All authorization checks are there for a reason
-2. **Validate all inputs** - Check bounds, types, and authorization
-3. **Test edge cases** - Zero amounts, maximum values, unauthorized access
-4. **Consider reentrancy** - Ensure state updates happen before external calls
-5. **Document security assumptions** - Explain trust boundaries in comments
-
-## 🐛 Reporting Bugs
-
-When reporting bugs, please include:
-
-1. **Description** - Clear summary of the issue
-2. **Steps to reproduce** - Detailed steps to trigger the bug
-3. **Expected behavior** - What should happen
-4. **Actual behavior** - What actually happens
-5. **Environment** - Rust version, Stellar CLI version, OS
-6. **Code samples** - Minimal reproducible example if possible
-
-## 💡 Feature Requests
-
-We welcome feature suggestions! Please:
-
-1. Check existing issues to avoid duplicates
-2. Clearly describe the feature and use case
-3. Explain how it benefits Cypher GridPay users
-4. Consider backwards compatibility
-
-## 📋 Pull Request Checklist
-
-Before submitting your PR, verify:
-
-- [ ] Code builds without errors (`make build`)
-- [ ] All tests pass (`cargo test --workspace`)
-- [ ] Code is formatted (`cargo fmt --all`)
-- [ ] No clippy warnings (`cargo clippy`)
-- [ ] New tests added for new functionality
-- [ ] Documentation updated if needed
-- [ ] Commit messages follow conventional format
-- [ ] PR description clearly explains changes
-
-## 🎯 Areas for Contribution
-
-We especially welcome contributions in:
-
-- **Testing** - Additional test coverage, edge cases, integration tests
-- **Documentation** - Code comments, usage examples, tutorials
-- **Security** - Security reviews, vulnerability testing
-- **Optimization** - Gas optimization, performance improvements
-- **Features** - New payment features, refund mechanisms
-
----
-
-Thank you for helping make Cypher GridPay better! 🙏
+#[should_panic(expected = "
