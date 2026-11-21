@@ -138,6 +138,23 @@ Pass no `source` for a read-only client. Re-run the generator after any contract
 interface change — the generated `.d.ts` turns a breaking change into a compile
 error in your app. See [sdk/typescript/README.md](sdk/typescript/README.md).
 
+## ⚙️ Crank Worker (TypeScript)
+
+Soroban contracts cannot self-execute on a timer. `services/crank-worker/` is the off-chain
+automation worker for due scheduled payments, recurring subscriptions, dunning retries, trial
+conversion notices, payment expiry, arbitration timeouts and stale-escrow cleanup. It reads
+indexed PostgreSQL schedules, simulates before submitting (zero gas for already-executed items),
+uses sequence-number channel accounts with TTL restoration, and exposes Prometheus metrics.
+
+```bash
+make crank-install
+psql "$DATABASE_URL" -f services/crank-worker/sql/001_crank_schedule.sql
+make crank-test
+```
+
+See [services/crank-worker/README.md](services/crank-worker/README.md) for configuration and
+deployment details.
+
 ## 🔄 Development Workflow
 
 1. Fork the repo

@@ -50,4 +50,14 @@ clean:
 	$(MAKE) -C core clean
 	$(MAKE) -C orchestrator clean
 
+crank-install:
+	cd services/crank-worker && npm ci
+
+crank-build: crank-install
+	cd services/crank-worker && npm run build
+
+crank-test: crank-install
+	cd services/crank-worker && npm test
+
+.PHONY: differential default all test build check-size fmt clippy check doc clean crank-install crank-build crank-test
 .PHONY: differential default all test build check-size fmt clippy check doc relayer-install relayer-test clean
