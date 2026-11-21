@@ -4,6 +4,11 @@ This runbook is for the protocol team when a security vulnerability or live expl
 
 Keep it next to your signing setup. In an incident, the aim is to run the commands below without stopping to look anything up.
 
+> **Related references:**
+> - [STORAGE_VERSIONING.md](./STORAGE_VERSIONING.md) — complete storage key inventory, chunked `migrate_schema_step` runbook, and XDR compatibility pitfalls.
+> - [STORAGE_RESTORATION.md](./STORAGE_RESTORATION.md) — decision matrix for automated `restorePreamble` vs. manual keeper/admin restoration, and `verify_archived_record_inclusion`.
+> - [ARCHITECTURE.md](./ARCHITECTURE.md) — contract topology and storage tiers.
+
 ---
 
 ## 0. Before an incident: preparation checklist
@@ -15,6 +20,7 @@ Do these ahead of time. During an incident there is no time to set up keys.
 - [ ] The **admin** identity for the admin contract (used to repoint child contracts after an upgrade) is available.
 - [ ] Contract IDs are recorded below and in the team password manager.
 - [ ] A keeper or cron job calls `ping` on the admin contract at least every few weeks so its instance TTL never lapses (see [§6](#6-keeping-contracts-alive-ttl)).
+- [ ] Storage layout and archival recovery procedures reviewed against [STORAGE_VERSIONING.md](./STORAGE_VERSIONING.md) and [STORAGE_RESTORATION.md](./STORAGE_RESTORATION.md).
 
 ### Environment variables used in this runbook
 
@@ -78,7 +84,7 @@ The `reason` string is written to each child contract's `PauseState` and pause h
 | `Error(Contract, #3)` `Unauthorized` | `--pauser` is not the stored pauser | Check `$PAUSER_ADDR`, use the correct identity |
 | Auth / signature error | Source account didn't sign for the pauser | Make sure `--source-account` is the pauser identity |
 | Child contract error (e.g. `Unauthorized`, `MultiSigNotInitialized`) | Pauser is not an admin on that child | The whole transaction reverted. Use [§2.3](#23-fallback-pause-each-contract-directly) |
-| Entry archived | Admin contract instance TTL lapsed | `stellar contract restore --id $ADMIN_ID ...`, then retry (see [§6](#6-keeping-contracts-alive-ttl)) |
+| Entry archived | Admin contract instance TTL lapsed | `stellar contract restore --id $ADMIN_ID ...`, then retry (see [§6](#6-keeping-contracts-alive-ttl) and [STORAGE_RESTORATION.md](./STORAGE_RESTORATION.md)) |
 
 ### 2.3 Fallback: pause each contract directly
 
@@ -179,121 +185,7 @@ Use `stellar contract info interface --id <ID> --network $NETWORK` to confirm wh
 - [ ] Root cause identified and reproduced in a unit test (`cargo test` in `core/` or `orchestrator/`)
 - [ ] Complete list of affected payment / escrow / refund IDs
 - [ ] Token balances held by each contract reconciled against the stored records
-- [ ] Decision made: can the fix be applied with configuration or admin calls, or does it need new code ([§5.2](#52-upgrading-a-contract))?
-
----
-
-## 5. Recovery
-
-### 5.1 Configuration-only fixes
-
-If the fix is a parameter change (limits, fees, allow-lists, and so on), apply it with the relevant admin function while the contracts are still paused. Then go to [§5.4](#54-resuming-operations).
-
-### 5.2 Upgrading a contract
-
-The child contracts do **not** expose an in-place `upgrade` entry point. A code fix is therefore rolled out by deploying a new contract instance and repointing the orchestrator to it:
-
-1. **Fix and test.** Add a regression test that reproduces the exploit, then run the full suite:
-   ```bash
-   make test          # builds and tests core/ and orchestrator/
-   ```
-2. **Build and upload the new wasm:**
-   ```bash
-   cd core && stellar contract build
-   stellar contract upload \
-     --wasm target/wasm32v1-none/release/payments.wasm \
-     --source-account $ADMIN --network $NETWORK
-   # → prints the new WASM_HASH
-   ```
-3. **Deploy and initialize the new instance:**
-   ```bash
-   NEW_PAYMENT_ID=$(stellar contract deploy --wasm-hash <WASM_HASH> \
-     --source-account $ADMIN --network $NETWORK)
-   stellar contract invoke --id $NEW_PAYMENT_ID --source-account $ADMIN --network $NETWORK \
-     -- initialize --admin <CHILD_ADMIN_ADDR>
-   ```
-   Make sure the pauser is an admin of the new instance. Otherwise, future emergency pauses through the orchestrator will fail.
-4. **Deploy the new instance paused**, so it cannot be used before it is verified:
-   ```bash
-   stellar contract invoke --id $NEW_PAYMENT_ID --source-account $PAUSER --network $NETWORK \
-     -- pause_contract --admin $PAUSER_ADDR --reason "INC-2026-XX: staged upgrade"
-   ```
-5. **Repoint the orchestrator** (admin key required):
-   ```bash
-   stellar contract invoke --id $ADMIN_ID --source-account $ADMIN --network $NETWORK \
-     -- set_payment_contract --admin $ADMIN_ADDR --payment_contract $NEW_PAYMENT_ID
-   # likewise: set_escrow_contract / set_refund_contract
-   ```
-6. **Migrate data** if the storage layout changed. Follow [STORAGE_VERSIONING.md](./STORAGE_VERSIONING.md) (`migrate_schema`, and `migrate_escrow` / `migrate_escrow_batch` for escrow).
-7. **Update integrations.** Frontends, indexers, and dependent contracts must use the new contract ID.
-
-The old instance stays paused permanently. Funds held there must be released through its existing admin or dispute paths before it is abandoned.
-
-### 5.3 Restoring archived entries
-
-If any entry was archived during the incident window, restore it before resuming:
-
-```bash
-stellar contract restore --id <CONTRACT_ID> --source-account $ADMIN --network $NETWORK
-# for a specific persistent key:
-stellar contract restore --id <CONTRACT_ID> --key-xdr <KEY_XDR> --durability persistent \
-  --source-account $ADMIN --network $NETWORK
-```
-
-### 5.4 Resuming operations
-
-Only the incident lead approves resuming. First confirm that the fix is deployed and verified. Then:
-
-```bash
-stellar contract invoke \
-  --id $ADMIN_ID \
-  --source-account $PAUSER \
-  --network $NETWORK \
-  -- emergency_unpause_all \
-  --pauser $PAUSER_ADDR
-```
-
-`emergency_unpause_all` is idempotent. It is safe to rerun if you are unsure whether it succeeded, and a single call clears the pause no matter how many times the contracts were paused.
-
-For function-level pauses, use `unpause_function --admin $PAUSER_ADDR --function_name "<name>"` on each affected contract.
-
-Repeat [§3](#3-verify-the-pause-took-effect) and confirm `"globally_paused": false` on every contract. Then run a small end-to-end transaction on the live network.
-
----
-
-## 6. Keeping contracts alive (TTL)
-
-On Soroban, a contract whose instance TTL lapses is archived and must be restored before anyone can call it. **This includes the emergency pause.**
-
-- Every administrative call on the admin contract extends its instance TTL automatically.
-- Anyone can extend it explicitly with the permissionless `ping` endpoint:
-  ```bash
-  stellar contract invoke --id $ADMIN_ID --source-account <any-funded-identity> --network $NETWORK -- ping
-  ```
-- Child contract instances can be extended with the CLI:
-  ```bash
-  stellar contract extend --id $PAYMENT_ID --ledgers-to-extend 535680 \
-    --source-account $ADMIN --network $NETWORK
-  ```
-
-Schedule a `ping` call (and `extend` calls for the child contracts) at least monthly.
-
----
-
-## 7. Post-mortem
-
-Within 5 business days of the incident, publish an internal post-mortem that covers:
-
-- A timeline, from detection to pause, verification, fix, and resume, with ledger numbers and tx hashes
-- The root cause and why existing tests did not catch it
-- User impact (affected IDs and amounts) and the remediation plan
-- Follow-up actions, such as new tests, monitoring, and runbook changes
-
-Update this runbook with anything that slowed the response down.
-
----
-
-## See Also
+- [ ] Deci
 
 - [Admin contract README](../orchestrator/contracts/admin/README.md)
 - [Storage versioning](./STORAGE_VERSIONING.md)
@@ -301,3 +193,4 @@ Update this runbook with anything that slowed the response down.
 - [Security policy](../SECURITY.md)
 - [Multi-Asset & Oracle Configuration Guide](./MULTI_ASSET_AND_ORACLES.md) — token delisting, oracle staleness and manual fallback procedures
 - [Economic invariants & balance conservation](./ECONOMIC_INVARIANTS.md)
+/* … truncated 5097 chars — edit only what you need near the top … */

@@ -40,8 +40,14 @@ doc:
 	$(MAKE) -C core doc
 	$(MAKE) -C orchestrator doc
 
+relayer-install:
+	cd services/relayer && npm ci
+
+relayer-test: relayer-install
+	cd services/relayer && npm run typecheck && npm test
+
 clean:
 	$(MAKE) -C core clean
 	$(MAKE) -C orchestrator clean
 
-.PHONY: differential default all test build check-size fmt clippy check doc clean
+.PHONY: differential default all test build check-size fmt clippy check doc relayer-install relayer-test clean

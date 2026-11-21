@@ -58,6 +58,15 @@ cargo test -p escrow test_dispute_resolution # from inside core/
 cargo test -p payments test_fee # from inside core/
 ```
 
+### Gasless Relayer Service
+
+```bash
+# Typecheck, build and test the fee-bump relayer (Node 18+)
+make relayer-test
+```
+
+See [`services/relayer/README.md`](services/relayer/README.md) for the `POST /v1/relayer/sponsor` API, policy engine, channel pool and configuration.
+
 ## 📂 Contract Overview
 
 ### Payment Contract (`core/contracts/payment`)
@@ -164,3 +173,6 @@ This project is licensed under the [MIT License](LICENSE).
 
 <!-- handsoff-issue-13 -->
 - #13: payment: Add expiration and overflow checks to customer loyalty points system
+
+<!-- handsoff-issue-397 -->
+- #397: docs: Document Off-Chain Backend API OpenAPI 3.1 Specification, Webhook Event Catalog, and HMAC Signature Verification
